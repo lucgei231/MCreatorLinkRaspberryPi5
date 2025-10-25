@@ -1,6 +1,7 @@
 apply plugin: 'java'
 
-sourceCompatibility = 1.8
+sourceCompatibility = 17
+targetCompatibility = 17
 repositories {
     mavenCentral()
 }
@@ -19,5 +20,7 @@ jar {
 }
 
 dependencies {
-    implementation 'com.pi4j:pi4j-core:1.4'
+    implementation 'com.pi4j:pi4j-core:2.3.0'
+    implementation 'com.pi4j:pi4j-plugin-raspberrypi:2.3.0'
+    implementation 'com.pi4j:pi4j-plugin-pigpio:2.3.0'
 }

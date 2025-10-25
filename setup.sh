@@ -12,16 +12,14 @@ echo ====================================================
 # install dependencies
 sudo apt-get -y update && 
 sudo apt-get -y dist-upgrade && 
-sudo apt-get -y install oracle-java8-jdk wiringpi
+sudo apt-get -y install openjdk-17-jdk pigpio
 
 echo ====================================================
 echo Installing Pi4j
 echo ====================================================
 
-# install pi4j
-cd /tmp
-sudo wget https://pi4j.com/download/pi4j-1.4.deb
-sudo dpkg -i pi4j-1.4.deb
+# install pi4j v2
+curl -sSL https://pi4j.com/install | sudo bash
 
 echo ====================================================
 echo Downloading MCreator Link
@@ -46,7 +44,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/mcreatorlink
-ExecStart=/bin/bash -c "sudo java -cp '.:mcreator_link_pi.jar:/opt/pi4j/lib/*' net.mcreator.minecraft.link.raspberrypi.Service"
+ExecStart=/bin/bash -c "sudo java -cp '.:mcreator_link_pi.jar:/opt/pi4j/lib/*' --add-opens java.base/java.nio=ALL-UNNAMED net.mcreator.minecraft.link.raspberrypi.Service"
 Restart=always
 User=root
  

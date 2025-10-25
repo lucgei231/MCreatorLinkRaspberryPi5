@@ -16,20 +16,23 @@
 
 package net.mcreator.minecraft.link.raspberrypi;
 
-import com.pi4j.io.gpio.*;
-import com.pi4j.system.SystemInfo;
+import com.pi4j.Pi4J;
+import com.pi4j.context.Context;
+import com.pi4j.io.gpio.digital.*;
+import com.pi4j.platform.Platform;
+import com.pi4j.platform.Platforms;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 class RaspberryPiIO {
 
-	static final int ANALOG_PIN_COUNT = 0;
+    static final int ANALOG_PIN_COUNT = 0;
 
-	private final SystemInfo.BoardType board;
-	private final Map<Integer, GpioPinDigitalMultipurpose> multipurposePins = new HashMap<>();
-	private final int digitalPinCount;
+    private final Context pi4j;
+    private final Map<Integer, DigitalOutput> outputs = new HashMap<>();
+    private final Map<Integer, DigitalInput> inputs = new HashMap<>();
+    private final int digitalPinCount;
 
 	/**
 	 * Call this method to setup IO, count pins and map them
@@ -37,13 +40,10 @@ class RaspberryPiIO {
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	RaspberryPiIO() throws IOException, InterruptedException {
-		GpioController gpio = GpioFactory.getInstance();
-
-		Pin[] pins;
-
-		// get a collection of raw pins based on the board type (model)
-		this.board = SystemInfo.getBoardType();
+	RaspberryPiIO() {
+        // Initialize Pi4J with the RaspberryPi platform
+        pi4j = Pi4J.newAutoContext();
+        digitalPinCount = 40; // Pi 5 has 40 GPIO pins
 		if (board == SystemInfo.BoardType.RaspberryPi_ComputeModule) {
 			// get all pins for compute module
 			pins = RCMPin.allPins();
@@ -77,7 +77,7 @@ class RaspberryPiIO {
 	 *
 	 * @return BoardType object
 	 */
-	SystemInfo.BoardType getBoard() {
+	Platform getBoard() {
 		return board;
 	}
 
@@ -88,7 +88,24 @@ class RaspberryPiIO {
 	 * @param mode              Pin mode
 	 * @param pinPullResistance Pin pull resistance
 	 */
-	void pinMode(int pin, PinMode mode, PinPullResistance pinPullResistance) {
+    void pinMode(int pin, PinMode mode, PinPullResistance pull) {
+        if (mode == PinMode.DIGITAL_OUTPUT) {
+            var config = DigitalOutput.newConfigBuilder(pi4j)
+                .id("output-" + pin)
+                .name("Output " + pin)
+                .address(pin)
+                .build();
+            outputs.put(pin, pi4j.create(config));
+        } else {
+            var config = DigitalInput.newConfigBuilder(pi4j)
+                .id("input-" + pin)
+                .name("Input " + pin)
+                .address(pin)
+                .pull(pull == PinPullResistance.PULL_UP ? 
+                      PullResistance.PULL_UP : PullResistance.PULL_DOWN)
+                .build();
+            inputs.put(pin, pi4j.create(config));
+        }
 		if (multipurposePins.get(pin) != null) {
 			multipurposePins.get(pin).setMode(mode);
 			multipurposePins.get(pin).setPullResistance(pinPullResistance);
@@ -101,7 +118,11 @@ class RaspberryPiIO {
 	 * @param pin   Pin number
 	 * @param value Value (should be 0 or 1)
 	 */
-	void digitalWrite(int pin, byte value) {
+    void digitalWrite(int pin, byte value) {
+        var output = outputs.get(pin);
+        if (output != null) {
+            output.state(value != 0);
+        }
 		if (multipurposePins.get(pin) != null)
 			if (value == 0)
 				multipurposePins.get(pin).low();
@@ -115,7 +136,12 @@ class RaspberryPiIO {
 	 * @param pin Pin to check
 	 * @return 1 if pin is in high logic level state, 0 otherwise
 	 */
-	byte digitalRead(int pin) {
+    byte digitalRead(int pin) {
+        var input = inputs.get(pin);
+        if (input != null) {
+            return (byte)(input.state() ? 1 : 0);
+        }
+        return 0;
 		if (multipurposePins.get(pin) != null)
 			if (multipurposePins.get(pin).getState() == PinState.HIGH)
 				return 1;
